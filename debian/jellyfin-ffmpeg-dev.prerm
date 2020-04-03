@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Remove our transitional symlink
+rm -f /usr/share/jellyfin-ffmpeg-dev
+
+# Remove AMD VAAPI drivers symlink
+if [ $(uname -m) = "x86_64" ]; then
+        rm -f /usr/lib/jellyfin-ffmpeg-dev/dri/r600_drv_video.so
+        rm -f /usr/lib/jellyfin-ffmpeg-dev/dri/radeonsi_drv_video.so
+fi
