@@ -44,12 +44,22 @@ Build-Depends:
 # --enable-libzvbi
  libzvbi-dev,
 # --enable-omx
- libomxil-bellagio-dev,
+# omx headers are fully included in raspberrypi/firmware.
+# libomxil-bellagio-dev is missing the 'OMX_IndexConfigBrcmVideoRequestIFrame'
+# and 'OMX_IndexConfigBrcmVideoRequestIFrame' functions required by ffmpeg 4.3.
+# libomxil-bellagio-dev [!armhf !arm64],
+#
 # --enable-vaapi
-# [!amd64] libva-dev is replaced by the libva build from source,
+# libva-dev is replaced by the libva build from source,
 # which will be shipped with jellyfin-ffmpeg package.
+# Vaapi currently only supports Intel and AMD gfx
+# and the drivers they provide only support x86/x64.
+# libva-dev [!armhf !arm64],
+#
 # --enable-vdpau
- libvdpau-dev,
+# vdpau has almost been replaced by nvenc/nvdec, and it is not required in jellyfin.
+# libvdpau-dev,
+#
 # --enable-nvenc/--enable-nvdec
 # [!armhf] is needed otherwise mk-build-deps creates an invalid build
 # dep list, targeting armhf specifically when the packge is any.
@@ -57,6 +67,7 @@ Build-Depends:
 # Disabled entirely as the install now happens via Git inside the
 # Docker build environment.
 # nv-codec-headers [!armhf !arm64],
+#
 # used to detect libraries
  pkg-config,
 # HTML documentation

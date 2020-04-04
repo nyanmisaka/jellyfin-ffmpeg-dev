@@ -1,5 +1,2 @@
 ffmpeg usr/lib/jellyfin-ffmpeg-dev
 ffprobe usr/lib/jellyfin-ffmpeg-dev
-intel-drivers/dri/i965*.so usr/lib/jellyfin-ffmpeg-dev/dri
-intel-drivers/libva.so* usr/lib/jellyfin-ffmpeg-dev/libs
-intel-drivers/libva-drm.so* usr/lib/jellyfin-ffmpeg-dev/libs

@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Prepare Debian build environment
 RUN apt-get update \
- && yes | apt-get install -y apt-transport-https debhelper gnupg wget devscripts mmv equivs git pkg-config subversion libdrm-dev
+ && yes | apt-get install -y apt-transport-https debhelper gnupg wget devscripts mmv equivs git pkg-config subversion libdrm-dev dh-autoreconf
 
 # Link to docker-build script
 RUN ln -sf ${SOURCE_DIR}/docker-build.sh /docker-build.sh
