@@ -24,23 +24,14 @@
  * chunk, followed by data chunks where each Cluster is written out as a Chunk.
  */
 
-#include <float.h>
-#include <time.h>
-
 #include "avformat.h"
 #include "avio.h"
 #include "avio_internal.h"
 #include "internal.h"
 
-#include "libavutil/avassert.h"
 #include "libavutil/log.h"
 #include "libavutil/opt.h"
-#include "libavutil/avstring.h"
-#include "libavutil/parseutils.h"
 #include "libavutil/mathematics.h"
-#include "libavutil/time.h"
-#include "libavutil/time_internal.h"
-#include "libavutil/timestamp.h"
 
 #define MAX_FILENAME_SIZE 1024
 
@@ -293,7 +284,6 @@ static const AVOption options[] = {
     { NULL },
 };
 
-#if CONFIG_WEBM_CHUNK_MUXER
 static const AVClass webm_chunk_class = {
     .class_name = "WebM Chunk Muxer",
     .item_name  = av_default_item_name,
@@ -316,4 +306,3 @@ AVOutputFormat ff_webm_chunk_muxer = {
     .deinit         = webm_chunk_deinit,
     .priv_class     = &webm_chunk_class,
 };
-#endif

@@ -190,9 +190,12 @@ typedef struct DASHContext {
     int frag_type;
     int write_prft;
     int64_t max_gop_size;
+    int64_t max_segment_duration;
     int profile;
     int64_t target_latency;
     int target_latency_refid;
+    AVRational min_playback_rate;
+    AVRational max_playback_rate;
 } DASHContext;
 
 static struct codec_string {
@@ -803,7 +806,7 @@ static int write_adaptation_set(AVFormatContext *s, AVIOContext *out, int as_ind
     AVDictionaryEntry *lang, *role;
     int i;
 
-    avio_printf(out, "\t\t<AdaptationSet id=\"%d\" contentType=\"%s\" segmentAlignment=\"true\" bitstreamSwitching=\"true\"",
+    avio_printf(out, "\t\t<AdaptationSet id=\"%d\" contentType=\"%s\" startWithSAP=\"1\" segmentAlignment=\"true\" bitstreamSwitching=\"true\"",
                 as->id, as->media_type == AVMEDIA_TYPE_VIDEO ? "video" : "audio");
     if (as->media_type == AVMEDIA_TYPE_VIDEO && as->max_frame_rate.num && !as->ambiguous_frame_rate && av_cmp_q(as->min_frame_rate, as->max_frame_rate) < 0)
         avio_printf(out, " maxFrameRate=\"%d/%d\"", as->max_frame_rate.num, as->max_frame_rate.den);
@@ -864,7 +867,7 @@ static int write_adaptation_set(AVFormatContext *s, AVIOContext *out, int as_ind
                 s->streams[i]->codecpar->channels);
         }
         if (!final && c->write_prft && os->producer_reference_time_str[0]) {
-            avio_printf(out, "\t\t\t\t<ProducerReferenceTime id=\"%d\" inband=\"true\" type=\"%s\" wallclockTime=\"%s\" presentationTime=\"%"PRId64"\">\n",
+            avio_printf(out, "\t\t\t\t<ProducerReferenceTime id=\"%d\" inband=\"true\" type=\"%s\" wallClockTime=\"%s\" presentationTime=\"%"PRId64"\">\n",
                         i, os->producer_reference_time.flags ? "captured" : "encoder", os->producer_reference_time_str, c->presentation_time_offset);
             avio_printf(out, "\t\t\t\t\t<UTCTiming schemeIdUri=\"urn:mpeg:dash:utc:http-xsdate:2014\" value=\"%s\"/>\n", c->utc_timing_url);
             avio_printf(out, "\t\t\t\t</ProducerReferenceTime>\n");
@@ -1189,6 +1192,9 @@ static int write_manifest(AVFormatContext *s, int final)
             avio_printf(out, "\"\n");
         }
     }
+    avio_printf(out, "\tmaxSegmentDuration=\"");
+    write_time(out, c->max_segment_duration);
+    avio_printf(out, "\"\n");
     avio_printf(out, "\tminBufferTime=\"");
     write_time(out, c->ldash && c->max_gop_size ? c->max_gop_size : c->last_duration * 2);
     avio_printf(out, "\">\n");
@@ -1199,14 +1205,19 @@ static int write_manifest(AVFormatContext *s, int final)
         av_free(escaped);
     }
     avio_printf(out, "\t</ProgramInformation>\n");
+
+    avio_printf(out, "\t<ServiceDescription id=\"0\">\n");
     if (!final && c->target_latency && c->target_latency_refid >= 0) {
-        avio_printf(out, "\t<ServiceDescription id=\"0\">\n");
         avio_printf(out, "\t\t<Latency target=\"%"PRId64"\"", c->target_latency / 1000);
         if (s->nb_streams > 1)
             avio_printf(out, " referenceId=\"%d\"", c->target_latency_refid);
         avio_printf(out, "/>\n");
-        avio_printf(out, "\t</ServiceDescription>\n");
     }
+    if (av_cmp_q(c->min_playback_rate, (AVRational) {1, 1}) ||
+        av_cmp_q(c->max_playback_rate, (AVRational) {1, 1}))
+        avio_printf(out, "\t\t<PlaybackRate min=\"%.2f\" max=\"%.2f\"/>\n",
+                    av_q2d(c->min_playback_rate), av_q2d(c->max_playback_rate));
+    avio_printf(out, "\t</ServiceDescription>\n");
 
     if (c->window_size && s->nb_streams > 0 && c->streams[0].nb_segments > 0 && !c->use_template) {
         OutputStream *os = &c->streams[0];
@@ -1311,7 +1322,7 @@ static int write_manifest(AVFormatContext *s, int final)
             get_hls_playlist_name(playlist_file, sizeof(playlist_file), NULL, i);
             ff_hls_write_stream_info(st, c->m3u8_out, stream_bitrate,
                                      playlist_file, agroup,
-                                     codec_str_ptr, NULL);
+                                     codec_str_ptr, NULL, NULL);
         }
         dashenc_io_close(s, &c->m3u8_out, temp_filename);
         if (use_rename)
@@ -1417,6 +1428,11 @@ static int dash_init(AVFormatContext *s)
     if (c->target_latency && !c->write_prft) {
         av_log(s, AV_LOG_WARNING, "Target latency option will be ignored as Producer Reference Time element will not be written\n");
         c->target_latency = 0;
+    }
+
+    if (av_cmp_q(c->max_playback_rate, c->min_playback_rate) < 0) {
+        av_log(s, AV_LOG_WARNING, "Minimum playback rate value is higer than the Maximum. Both will be ignored\n");
+        c->min_playback_rate = c->max_playback_rate = (AVRational) {1, 1};
     }
 
     av_strlcpy(c->dirname, s->url, sizeof(c->dirname));
@@ -1563,6 +1579,8 @@ static int dash_init(AVFormatContext *s)
         os->seg_duration = as->seg_duration;
         os->frag_duration = as->frag_duration;
         os->frag_type = as->frag_type;
+
+        c->max_segment_duration = FFMAX(c->max_segment_duration, as->seg_duration);
 
         if (c->profile & MPD_PROFILE_DVB && (os->seg_duration > 15000000 || os->seg_duration < 960000)) {
             av_log(s, AV_LOG_ERROR, "Segment duration %"PRId64" is outside the allowed range for DVB-DASH profile\n", os->seg_duration);
@@ -2364,6 +2382,8 @@ static const AVOption options[] = {
     { "dvb_dash", "DVB-DASH profile", 0, AV_OPT_TYPE_CONST, {.i64 = MPD_PROFILE_DVB }, 0, UINT_MAX, E, "mpd_profile"},
     { "http_opts", "HTTP protocol options", OFFSET(http_opts), AV_OPT_TYPE_DICT, { .str = NULL }, 0, 0, E },
     { "target_latency", "Set desired target latency for Low-latency dash", OFFSET(target_latency), AV_OPT_TYPE_DURATION, { .i64 = 0 }, 0, INT_MAX, E },
+    { "min_playback_rate", "Set desired minimum playback rate", OFFSET(min_playback_rate), AV_OPT_TYPE_RATIONAL, { .dbl = 1.0 }, 0.5, 1.5, E },
+    { "max_playback_rate", "Set desired maximum playback rate", OFFSET(max_playback_rate), AV_OPT_TYPE_RATIONAL, { .dbl = 1.0 }, 0.5, 1.5, E },
     { NULL },
 };
 

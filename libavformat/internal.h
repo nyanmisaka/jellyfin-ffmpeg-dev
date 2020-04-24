@@ -230,9 +230,9 @@ char *ff_data_to_hex(char *buf, const uint8_t *src, int size, int lowercase);
 int ff_hex_to_data(uint8_t *data, const char *p);
 
 /**
- * Add packet to AVFormatContext->packet_buffer list, determining its
+ * Add packet to an AVFormatContext's packet_buffer list, determining its
  * interleaved position using compare() function argument.
- * @return 0, or < 0 on error
+ * @return 0 on success, < 0 on error. pkt will always be blank on return.
  */
 int ff_interleave_add_packet(AVFormatContext *s, AVPacket *pkt,
                              int (*compare)(AVFormatContext *, const AVPacket *, const AVPacket *));
@@ -495,19 +495,16 @@ int ff_framehash_write_header(AVFormatContext *s);
 int ff_read_packet(AVFormatContext *s, AVPacket *pkt);
 
 /**
- * Interleave a packet per dts in an output media file.
+ * Interleave an AVPacket per dts so it can be muxed.
  *
- * Packets with pkt->destruct == av_destruct_packet will be freed inside this
- * function, so they cannot be used after it. Note that calling av_packet_unref()
- * on them is still safe.
- *
- * @param s media file handle
+ * @param s   an AVFormatContext for output. pkt resp. out will be added to
+ *            resp. taken from its packet buffer.
  * @param out the interleaved packet will be output here
- * @param pkt the input packet
+ * @param pkt the input packet; will be blank on return if not NULL
  * @param flush 1 if no further packets are available as input and all
  *              remaining packets should be output
- * @return 1 if a packet was output, 0 if no packet could be output,
- *         < 0 if an error occurred
+ * @return 1 if a packet was output, 0 if no packet could be output
+ *         (in which case out may be uninitialized), < 0 if an error occurred
  */
 int ff_interleave_packet_per_dts(AVFormatContext *s, AVPacket *out,
                                  AVPacket *pkt, int flush);

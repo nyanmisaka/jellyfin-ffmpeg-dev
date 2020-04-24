@@ -31,7 +31,6 @@
 #include <string.h>
 
 #include "avformat.h"
-#include "avio_internal.h"
 #include "matroska.h"
 
 #include "libavutil/avstring.h"
@@ -61,17 +60,7 @@ typedef struct WebMDashMuxContext {
 
 static const char *get_codec_name(int codec_id)
 {
-    switch (codec_id) {
-        case AV_CODEC_ID_VP8:
-            return "vp8";
-        case AV_CODEC_ID_VP9:
-            return "vp9";
-        case AV_CODEC_ID_VORBIS:
-            return "vorbis";
-        case AV_CODEC_ID_OPUS:
-            return "opus";
-    }
-    return NULL;
+    return avcodec_descriptor_get(codec_id)->name;
 }
 
 static double get_duration(AVFormatContext *s)
@@ -439,7 +428,7 @@ static int write_adaptation_set(AVFormatContext *s, int as_index)
 static int to_integer(char *p, int len)
 {
     int ret;
-    char *q = av_malloc(sizeof(char) * len);
+    char *q = av_malloc(len);
     if (!q)
         return AVERROR(ENOMEM);
     av_strlcpy(q, p, len);
@@ -516,6 +505,14 @@ static int webm_dash_manifest_write_header(AVFormatContext *s)
     double start = 0.0;
     int ret;
     WebMDashMuxContext *w = s->priv_data;
+
+    for (unsigned i = 0; i < s->nb_streams; i++) {
+        enum AVCodecID codec_id = s->streams[i]->codecpar->codec_id;
+        if (codec_id != AV_CODEC_ID_VP8    && codec_id != AV_CODEC_ID_VP9 &&
+            codec_id != AV_CODEC_ID_VORBIS && codec_id != AV_CODEC_ID_OPUS)
+            return AVERROR(EINVAL);
+    }
+
     ret = parse_adaptation_sets(s);
     if (ret < 0) {
         goto fail;
@@ -562,7 +559,6 @@ static const AVOption options[] = {
     { NULL },
 };
 
-#if CONFIG_WEBM_DASH_MANIFEST_MUXER
 static const AVClass webm_dash_class = {
     .class_name = "WebM DASH Manifest muxer",
     .item_name  = av_default_item_name,
@@ -580,4 +576,3 @@ AVOutputFormat ff_webm_dash_manifest_muxer = {
     .write_packet      = webm_dash_manifest_write_packet,
     .priv_class        = &webm_dash_class,
 };
-#endif

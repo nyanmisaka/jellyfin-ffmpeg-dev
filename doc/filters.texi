@@ -2329,6 +2329,8 @@ RMS_trough
 Crest_factor
 Flat_factor
 Peak_count
+Noise_floor
+Noise_floor_count
 Bit_depth
 Dynamic_range
 Zero_crossings
@@ -2351,6 +2353,8 @@ RMS_peak
 RMS_trough
 Flat_factor
 Peak_count
+Noise_floor
+Noise_floor_count
 Bit_depth
 Number_of_samples
 Number_of_NaNs
@@ -2421,6 +2425,13 @@ Flatness (i.e. consecutive samples with the same value) of the signal at its pea
 @item Peak count
 Number of occasions (not the number of samples) that the signal attained either
 @var{Min level} or @var{Max level}.
+
+@item Noise floor dB
+Minimum local peak measured in dBFS over a short window.
+
+@item Noise floor count
+Number of occasions (not the number of samples) that the signal attained
+@var{Noise floor}.
 
 @item Bit depth
 Overall bit depth of audio. Number of bits used for each sample.
@@ -6532,11 +6543,20 @@ Default is disabled.
 
 Detect video intervals that are (almost) completely black. Can be
 useful to detect chapter transitions, commercials, or invalid
-recordings. Output lines contains the time for the start, end and
-duration of the detected black interval expressed in seconds.
+recordings.
 
-In order to display the output lines, you need to set the loglevel at
-least to the AV_LOG_INFO value.
+The filter outputs its detection analysis to both the log as well as
+frame metadata. If a black segment of at least the specified minimum
+duration is found, a line with the start and end timestamps as well
+as duration is printed to the log with level @code{info}. In addition,
+a log line with level @code{debug} is printed per frame showing the
+black amount detected for that frame.
+
+The filter also attaches metadata to the first frame of a black
+segment with key @code{lavfi.black_start} and to the first frame
+after the black segment ends with key @code{lavfi.black_end}. The
+value is the frame's timestamp. This metadata is added regardless
+of the minimum duration specified.
 
 The filter accepts the following options:
 
@@ -8878,6 +8898,7 @@ delogo=x=0:y=0:w=100:h=77:band=10
 
 @end itemize
 
+@anchor{derain}
 @section derain
 
 Remove the rain in the input image/video by applying the derain methods based on
@@ -8931,6 +8952,8 @@ Set path to model file specifying network architecture and its parameters.
 Note that different backends use different file formats. TensorFlow and native
 backend can load files for only its format.
 @end table
+
+It can also be finished with @ref{dnn_processing} filter.
 
 @section deshake
 
@@ -9201,9 +9224,9 @@ Set the output name of the dnn network.
 
 @itemize
 @item
-Halve the red channle of the frame with format rgb24:
+Remove rain in rgb24 frame with can.pb (see @ref{derain} filter):
 @example
-ffmpeg -i input.jpg -vf format=rgb24,dnn_processing=model=halve_first_channel.model:input=dnn_in:output=dnn_out:dnn_backend=native out.native.png
+./ffmpeg -i rain.jpg -vf format=rgb24,dnn_processing=dnn_backend=tensorflow:model=can.pb:input=x:output=y derain.jpg
 @end example
 
 @item
@@ -13232,6 +13255,27 @@ This filter accepts the following options:
 @item planes
 Set which planes will be processed as bitmap, unprocessed planes will be
 copied from first stream.
+By default value 0xf, all planes will be processed.
+@end table
+
+@section maskedthreshold
+Pick pixels comparing absolute difference of two video streams with fixed
+threshold.
+
+If absolute difference between pixel component of first and second video
+stream is equal or lower than user supplied threshold than pixel component
+from first video stream is picked, otherwise pixel component from second
+video stream is picked.
+
+This filter accepts the following options:
+@table @option
+@item threshold
+Set threshold used when picking pixels from absolute difference from two input
+video streams.
+
+@item planes
+Set which planes will be processed as bitmap, unprocessed planes will be
+copied from second stream.
 By default value 0xf, all planes will be processed.
 @end table
 
@@ -18359,6 +18403,25 @@ enabled for @option{mode} @var{interleave_top} and @var{interleave_bottom}.
 
 @end table
 
+@section tmedian
+Pick median pixels from several successive input video frames.
+
+The filter accepts the following options:
+
+@table @option
+@item radius
+Set radius of median filter.
+Default is 1. Allowed range is from 1 to 127.
+
+@item planes
+Set which planes to filter. Default value is @code{15}, by which all planes are processed.
+
+@item percentile
+Set median percentile. Default value is @code{0.5}.
+Default value of @code{0.5} will pick always median values, while @code{0} will pick
+minimum values, and @code{1} maximum values.
+@end table
+
 @section tmix
 
 Mix successive video frames.
@@ -19044,12 +19107,15 @@ If diagonal field of view is set it overrides horizontal and vertical field of v
 @end table
 
 @item pannini
-Pannini projection. @i{(output only)}
+Pannini projection.
 
 Format specific options:
 @table @option
 @item h_fov
-Set pannini parameter.
+Set output pannini parameter.
+
+@item ih_fov
+Set input pannini parameter.
 @end table
 
 @item cylindrical
@@ -20113,6 +20179,10 @@ Set one of available transition effects:
 @item diagtr
 @item diagbl
 @item diagbr
+@item hlslice
+@item hrslice
+@item vuslice
+@item vdslice
 @end table
 Default transition effect is fade.
 

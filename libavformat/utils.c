@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include <stdarg.h>
 #include <stdint.h>
 
 #include "config.h"
@@ -31,26 +30,22 @@
 #include "libavutil/mathematics.h"
 #include "libavutil/opt.h"
 #include "libavutil/parseutils.h"
-#include "libavutil/pixdesc.h"
+#include "libavutil/pixfmt.h"
 #include "libavutil/thread.h"
 #include "libavutil/time.h"
-#include "libavutil/time_internal.h"
 #include "libavutil/timestamp.h"
 
 #include "libavcodec/bytestream.h"
 #include "libavcodec/internal.h"
 #include "libavcodec/raw.h"
 
-#include "audiointerleave.h"
 #include "avformat.h"
 #include "avio_internal.h"
 #include "id3v2.h"
 #include "internal.h"
-#include "metadata.h"
 #if CONFIG_NETWORK
 #include "network.h"
 #endif
-#include "riff.h"
 #include "url.h"
 
 #include "libavutil/ffversion.h"
@@ -222,7 +217,8 @@ static const AVCodec *find_probe_decoder(AVFormatContext *s, const AVStream *st,
 
     if (codec->capabilities & AV_CODEC_CAP_AVOID_PROBING) {
         const AVCodec *probe_codec = NULL;
-        while (probe_codec = av_codec_next(probe_codec)) {
+        void *iter = NULL;
+        while ((probe_codec = av_codec_iterate(&iter))) {
             if (probe_codec->id == codec_id &&
                     av_codec_is_decoder(probe_codec) &&
                     !(probe_codec->capabilities & (AV_CODEC_CAP_AVOID_PROBING | AV_CODEC_CAP_EXPERIMENTAL))) {
@@ -3125,6 +3121,8 @@ static int try_decode_frame(AVFormatContext *s, AVStream *st,
         } else if (avctx->codec_type == AVMEDIA_TYPE_SUBTITLE) {
             ret = avcodec_decode_subtitle2(avctx, &subtitle,
                                            &got_picture, &pkt);
+            if (got_picture)
+                avsubtitle_free(&subtitle);
             if (ret >= 0)
                 pkt.size = 0;
         }

@@ -12,7 +12,7 @@ fate-matroska-prores-header-insertion-bz2: CMD = framecrc -i $(TARGET_SAMPLES)/m
 FATE_MATROSKA-$(call DEMMUX, MATROSKA, MATROSKA) += fate-matroska-remux
 fate-matroska-remux: CMD = md5pipe -i $(TARGET_SAMPLES)/vp9-test-vectors/vp90-2-2pass-akiyo.webm -color_trc 4 -c:v copy -fflags +bitexact -strict -2 -f matroska
 fate-matroska-remux: CMP = oneline
-fate-matroska-remux: REF = 49a60ef91cf7302ab7276f9373f8a429
+fate-matroska-remux: REF = 8369f24de64aaa52cf57a699dcdc7d58
 
 FATE_MATROSKA-$(call ALLYES, MATROSKA_DEMUXER VORBIS_PARSER) += fate-matroska-xiph-lacing
 fate-matroska-xiph-lacing: CMD = framecrc -i $(TARGET_SAMPLES)/mkv/xiph_lacing.mka -c:a copy
@@ -49,8 +49,17 @@ FATE_MATROSKA-$(call ALLYES, FLAC_DECODER FLAC_ENCODER FLAC_PARSER \
 fate-matroska-flac-extradata-update: CMD = transcode matroska $(TARGET_SAMPLES)/mkv/flac_channel_layouts.mka \
                                            matroska "-map 0 -map 0:0 -c flac -frames:a:2 8" "-map 0 -c copy"
 
+# This test tests demuxing Vorbis and chapters from ogg and muxing it in and
+# demuxing it from Matroska/WebM. It furthermore tests the WebM muxer, in
+# particular its DASH mode. Finally, it tests writing the Cues at the front.
+FATE_MATROSKA_FFMPEG_FFPROBE-$(call ALLYES, MATROSKA_DEMUXER OGG_DEMUXER  \
+                                 VORBIS_DECODER VORBIS_PARSER WEBM_MUXER) \
+                               += fate-webm-dash-chapters
+fate-webm-dash-chapters: CMD = transcode ogg $(TARGET_SAMPLES)/vorbis/vorbis_chapter_extension_demo.ogg webm "-c copy -cluster_time_limit 1500 -dash 1 -dash_track_number 124 -reserve_index_space 400" "-c copy -t 0.5" "" -show_chapters
+
 FATE_MATROSKA_FFPROBE-$(call ALLYES, MATROSKA_DEMUXER) += fate-matroska-spherical-mono
 fate-matroska-spherical-mono: CMD = run ffprobe$(PROGSSUF)$(EXESUF) -show_entries stream_side_data_list -select_streams v -v 0 $(TARGET_SAMPLES)/mkv/spherical.mkv
 
 FATE_SAMPLES_AVCONV += $(FATE_MATROSKA-yes)
 FATE_SAMPLES_FFPROBE += $(FATE_MATROSKA_FFPROBE-yes)
+FATE_SAMPLES_FFMPEG_FFPROBE += $(FATE_MATROSKA_FFMPEG_FFPROBE-yes)

@@ -2790,6 +2790,7 @@ msmpeg4v3_decoder_select="h263_decoder"
 msmpeg4v3_encoder_select="h263_encoder"
 mss2_decoder_select="mpegvideo qpeldsp vc1_decoder"
 mts2_decoder_select="mss34dsp"
+mv30_decoder_select="aandcttables blockdsp"
 mvha_decoder_deps="zlib"
 mvha_decoder_select="llviddsp"
 mwsc_decoder_deps="zlib"
@@ -3294,6 +3295,7 @@ matroska_audio_muxer_select="matroska_muxer"
 matroska_demuxer_select="iso_media riffdec"
 matroska_demuxer_suggest="bzlib lzo zlib"
 matroska_muxer_select="iso_media riffenc"
+mlp_demuxer_select="mlp_parser"
 mmf_muxer_select="riffenc"
 mov_demuxer_select="iso_media riffdec"
 mov_demuxer_suggest="zlib"
@@ -3328,6 +3330,7 @@ spdif_muxer_select="adts_header"
 spx_muxer_select="ogg_muxer"
 swf_demuxer_suggest="zlib"
 tak_demuxer_select="tak_parser"
+truehd_demuxer_select="mlp_parser"
 tg2_muxer_select="mov_muxer"
 tgp_muxer_select="mov_muxer"
 vobsub_demuxer_select="mpegps_demuxer"
@@ -3335,6 +3338,7 @@ w64_demuxer_select="wav_demuxer"
 w64_muxer_select="wav_muxer"
 wav_demuxer_select="riffdec"
 wav_muxer_select="riffenc"
+webm_chunk_muxer_select="webm_muxer"
 webm_muxer_select="iso_media riffenc"
 webm_dash_manifest_demuxer_select="matroska_demuxer"
 wtv_demuxer_select="mpegts_demuxer riffdec"
@@ -4439,6 +4443,7 @@ msvc_common_flags(){
             -l*)                  echo ${flag#-l}.lib ;;
             -LARGEADDRESSAWARE)   echo $flag ;;
             -L*)                  echo -libpath:${flag#-L} ;;
+            -Wl,*)                ;;
             *)                    echo $flag ;;
         esac
     done
@@ -5356,6 +5361,11 @@ case $target_os in
         fi
         version_script='-exported_symbols_list'
         VERSION_SCRIPT_POSTPROCESS_CMD='tr " " "\n" | sed -n /global:/,/local:/p | grep ";" | tr ";" "\n" | sed -E "s/(.+)/_\1/g" | sed -E "s/(.+[^*])$$$$/\1*/"'
+        # Workaround for Xcode 11 -fstack-check bug
+        if enabled clang; then
+            clang_version=$($cc -dumpversion)
+            test ${clang_version%%.*} -eq 11 && add_cflags -fno-stack-check
+        fi
         ;;
     msys*)
         die "Native MSYS builds are discouraged, please use the MINGW environment."
@@ -6245,6 +6255,7 @@ for func in $COMPLEX_FUNCS; do
 done
 
 # these are off by default, so fail if requested and not available
+enabled avisynth          && require_headers "avisynth/avisynth_c.h"
 enabled cuda_nvcc         && { check_nvcc cuda_nvcc || die "ERROR: failed checking for nvcc."; }
 enabled chromaprint       && require chromaprint chromaprint.h chromaprint_get_version -lchromaprint
 enabled decklink          && { require_headers DeckLinkAPI.h &&
@@ -6664,7 +6675,7 @@ if enabled x86; then
             disable ffnvcodec cuvid nvdec nvenc
             ;;
     esac
-elif enabled ppc64 && ! enabled bigendian; then
+elif enabled_any aarch64 ppc64 && ! enabled bigendian; then
     case $target_os in
         linux)
             ;;

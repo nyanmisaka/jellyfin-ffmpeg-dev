@@ -99,6 +99,7 @@ typedef struct
     int             capture_raw_data;
     int             drop_late_frames;
     int             video_is_muxed;
+    int             video_is_screen;
 
     int             list_devices;
     int             video_device_index;
@@ -168,6 +169,7 @@ static void unlock_frames(AVFContext* ctx)
         _context = context;
 
         // start observing if a device is set for it
+#if !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         if (_context->observed_device) {
             NSString *keyPath = NSStringFromSelector(@selector(transportControlsPlaybackMode));
             NSKeyValueObservingOptions options = NSKeyValueObservingOptionNew;
@@ -177,14 +179,19 @@ static void unlock_frames(AVFContext* ctx)
                                            options: options
                                            context: _context];
         }
+#endif
     }
     return self;
 }
 
 - (void)dealloc {
     // stop observing if a device is set for it
-    NSString *keyPath = NSStringFromSelector(@selector(transportControlsPlaybackMode));
-    [_context->observed_device removeObserver: self forKeyPath: keyPath];
+#if !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+    if (_context->observed_device) {
+        NSString *keyPath = NSStringFromSelector(@selector(transportControlsPlaybackMode));
+        [_context->observed_device removeObserver: self forKeyPath: keyPath];
+    }
+#endif
     [super dealloc];
 }
 
@@ -537,14 +544,18 @@ static int add_video_device(AVFormatContext *s, AVCaptureDevice *video_device)
     }
     [ctx->video_output setAlwaysDiscardsLateVideoFrames:ctx->drop_late_frames];
 
+#if !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     // check for transport control support and set observer device if supported
-    int trans_ctrl = [video_device transportControlsSupported];
-    AVCaptureDeviceTransportControlsPlaybackMode trans_mode = [video_device transportControlsPlaybackMode];
+    if (!ctx->video_is_screen) {
+        int trans_ctrl = [video_device transportControlsSupported];
+        AVCaptureDeviceTransportControlsPlaybackMode trans_mode = [video_device transportControlsPlaybackMode];
 
-    if (trans_ctrl) {
-        ctx->observed_mode   = trans_mode;
-        ctx->observed_device = video_device;
+        if (trans_ctrl) {
+            ctx->observed_mode   = trans_mode;
+            ctx->observed_device = video_device;
+        }
     }
+#endif
 
     ctx->avf_delegate = [[AVFFrameReceiver alloc] initWithContext:ctx];
 
@@ -742,7 +753,6 @@ static int get_audio_config(AVFormatContext *s)
 static int avf_read_header(AVFormatContext *s)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    int capture_screen      = 0;
     uint32_t num_screens    = 0;
     AVFContext *ctx         = (AVFContext*)s->priv_data;
     AVCaptureDevice *video_device = nil;
@@ -839,7 +849,7 @@ static int avf_read_header(AVFormatContext *s)
             }
 
             video_device = (AVCaptureDevice*) capture_screen_input;
-            capture_screen = 1;
+            ctx->video_is_screen = 1;
 #endif
          } else {
             av_log(ctx, AV_LOG_ERROR, "Invalid device index\n");
@@ -876,7 +886,7 @@ static int avf_read_header(AVFormatContext *s)
                 AVCaptureScreenInput* capture_screen_input = [[[AVCaptureScreenInput alloc] initWithDisplayID:screens[idx]] autorelease];
                 video_device = (AVCaptureDevice*) capture_screen_input;
                 ctx->video_device_index = ctx->num_video_devices + idx;
-                capture_screen = 1;
+                ctx->video_is_screen = 1;
 
                 if (ctx->framerate.num > 0) {
                     capture_screen_input.minFrameDuration = CMTimeMake(ctx->framerate.den, ctx->framerate.num);
@@ -967,7 +977,7 @@ static int avf_read_header(AVFormatContext *s)
 
     /* Unlock device configuration only after the session is started so it
      * does not reset the capture formats */
-    if (!capture_screen) {
+    if (!ctx->video_is_screen) {
         [video_device unlockForConfiguration];
     }
 

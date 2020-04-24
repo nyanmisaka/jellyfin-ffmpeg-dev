@@ -233,14 +233,11 @@ static void init_options(OptionsContext *o)
 static int show_hwaccels(void *optctx, const char *opt, const char *arg)
 {
     enum AVHWDeviceType type = AV_HWDEVICE_TYPE_NONE;
-    int i;
 
     printf("Hardware acceleration methods:\n");
     while ((type = av_hwdevice_iterate_types(type)) !=
            AV_HWDEVICE_TYPE_NONE)
         printf("%s\n", av_hwdevice_get_type_name(type));
-    for (i = 0; hwaccels[i].name; i++)
-        printf("%s\n", hwaccels[i].name);
     printf("\n");
     return 0;
 }
@@ -936,8 +933,6 @@ static void add_input_streams(OptionsContext *o, AVFormatContext *ic)
                                AV_HWDEVICE_TYPE_NONE)
                             av_log(NULL, AV_LOG_FATAL, "%s ",
                                    av_hwdevice_get_type_name(type));
-                        for (i = 0; hwaccels[i].name; i++)
-                            av_log(NULL, AV_LOG_FATAL, "%s ", hwaccels[i].name);
                         av_log(NULL, AV_LOG_FATAL, "\n");
                         exit_program(1);
                     }
@@ -2437,12 +2432,14 @@ loop_end:
                    o->attachments[i]);
             exit_program(1);
         }
-        if (!(attachment = av_malloc(len))) {
-            av_log(NULL, AV_LOG_FATAL, "Attachment %s too large to fit into memory.\n",
+        if (len > INT_MAX - AV_INPUT_BUFFER_PADDING_SIZE ||
+            !(attachment = av_malloc(len + AV_INPUT_BUFFER_PADDING_SIZE))) {
+            av_log(NULL, AV_LOG_FATAL, "Attachment %s too large.\n",
                    o->attachments[i]);
             exit_program(1);
         }
         avio_read(pb, attachment, len);
+        memset(attachment + len, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
         ost = new_attachment_stream(o, oc, -1);
         ost->stream_copy               = 0;

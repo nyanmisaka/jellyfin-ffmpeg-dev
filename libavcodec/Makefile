@@ -6,12 +6,15 @@ HEADERS = ac3_parser.h                                                  \
           avcodec.h                                                     \
           avdct.h                                                       \
           avfft.h                                                       \
+          codec_desc.h                                                  \
+          codec_id.h                                                    \
           d3d11va.h                                                     \
           dirac.h                                                       \
           dv_profile.h                                                  \
           dxva2.h                                                       \
           jni.h                                                         \
           mediacodec.h                                                  \
+          packet.h                                                      \
           qsv.h                                                         \
           vaapi.h                                                       \
           vdpau.h                                                       \
@@ -494,6 +497,7 @@ OBJS-$(CONFIG_MSVIDEO1_DECODER)        += msvideo1.o
 OBJS-$(CONFIG_MSVIDEO1_ENCODER)        += msvideo1enc.o elbg.o
 OBJS-$(CONFIG_MSZH_DECODER)            += lcldec.o
 OBJS-$(CONFIG_MTS2_DECODER)            += mss4.o
+OBJS-$(CONFIG_MV30_DECODER)            += mv30.o
 OBJS-$(CONFIG_MVC1_DECODER)            += mvcdec.o
 OBJS-$(CONFIG_MVC2_DECODER)            += mvcdec.o
 OBJS-$(CONFIG_MVDV_DECODER)            += midivid.o
@@ -1080,6 +1084,7 @@ OBJS-$(CONFIG_VC1_PARSER)              += vc1_parser.o vc1.o vc1data.o  \
 OBJS-$(CONFIG_VP3_PARSER)              += vp3_parser.o
 OBJS-$(CONFIG_VP8_PARSER)              += vp8_parser.o
 OBJS-$(CONFIG_VP9_PARSER)              += vp9_parser.o
+OBJS-$(CONFIG_WEBP_PARSER)             += webp_parser.o
 OBJS-$(CONFIG_XMA_PARSER)              += xma_parser.o
 
 # bitstream filters
