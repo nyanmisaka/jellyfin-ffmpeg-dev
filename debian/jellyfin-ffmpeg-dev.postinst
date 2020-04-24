@@ -3,9 +3,3 @@
 # Symlink our old locations to the new locations
 # to aid in transitioning around the 10.3.0 release
 ln -s /usr/lib/jellyfin-ffmpeg-dev /usr/share/jellyfin-ffmpeg-dev
-
-# Symlink AMD VAAPI drivers to the dri folder
-if [ $(uname -m) = "x86_64" ]; then
-        ln -s /usr/lib/x86_64-linux-gnu/dri/r600_drv_video.so /usr/lib/jellyfin-ffmpeg-dev/dri
-        ln -s /usr/lib/x86_64-linux-gnu/dri/radeonsi_drv_video.so /usr/lib/jellyfin-ffmpeg-dev/dri
-fi

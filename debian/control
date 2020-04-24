@@ -43,11 +43,13 @@ Build-Depends:
  libx265-dev,
 # --enable-libzvbi
  libzvbi-dev,
+# --enable-opencl
+ ocl-icd-opencl-dev [!armhf !arm64],
 # --enable-omx
+# libomxil-bellagio-dev,
 # omx headers are fully included in raspberrypi/firmware.
-# libomxil-bellagio-dev is missing the 'OMX_IndexConfigBrcmVideoRequestIFrame'
-# and 'OMX_IndexConfigBrcmVideoRequestIFrame' functions required by ffmpeg 4.3.
-# libomxil-bellagio-dev [!armhf !arm64],
+# libomxil-bellagio-dev is missing some functions required in ffmpeg 4.3+.
+# Drop this package when building ffmpeg 4.3+.
 #
 # --enable-vaapi
 # libva-dev is replaced by the libva build from source,
@@ -55,10 +57,6 @@ Build-Depends:
 # Vaapi currently only supports Intel and AMD gfx
 # and the drivers they provide only support x86/x64.
 # libva-dev [!armhf !arm64],
-#
-# --enable-vdpau
-# vdpau has almost been replaced by nvenc/nvdec, and it is not required in jellyfin.
-# libvdpau-dev,
 #
 # --enable-nvenc/--enable-nvdec
 # [!armhf] is needed otherwise mk-build-deps creates an invalid build

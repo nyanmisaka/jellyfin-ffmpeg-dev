@@ -329,7 +329,7 @@ COPY debian/patches/*.patch /tmp/ffmpeg/
 RUN \
         DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
         for patch in *.patch; do \
-            filename="$( grep '+++' ${patch} | awk '{ print $2 }' | sed 's|jellyfin-ffmpeg-dev/||' )"; \
+            filename="$( grep '+++' ${patch} | awk '{ print $2 }' | sed 's|jellyfin-ffmpeg/||' )"; \
             patch --verbose ${filename} ${patch}; \
         done && \
 

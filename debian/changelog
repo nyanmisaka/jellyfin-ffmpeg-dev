@@ -1,3 +1,10 @@
+jellyfin-ffmpeg-dev (4.3-2-dev) unstable; urgency=medium
+
+  * Intergrate QSV/libmfx
+  * Enable OpenCl support
+
+ -- nyanmisaka <nst799610810@gmail.com>  Fri, 24 Apr 2020 22:38:46 +0800
+
 jellyfin-ffmpeg-dev (4.3-1-dev) unstable; urgency=medium
 
   * Bump to upstream version 4.3-devel

@@ -5,54 +5,107 @@
 set -o errexit
 set -o xtrace
 
-ARCHIVE_ADDR=https://archive.ubuntu.com/ubuntu/
-PORTS_ADDR=https://ports.ubuntu.com/
+ARCHIVE_ADDR=http://archive.ubuntu.com/ubuntu/
+PORTS_ADDR=http://ports.ubuntu.com/
 
 # Prepare HWA headers, libs and drivers for x86_64-linux-gnu
 prepare_hwa_amd64() {
-    # Download and install the nvidia headers from deb-multimedia
+    # Download and install the nvidia headers
     pushd ${SOURCE_DIR}
     git clone --depth=1 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
     pushd nv-codec-headers
     make
     make install
     popd
+    popd
 
-    # Download and setup AMD AMF headers from AMD official github repo
+    # Download and setup AMD AMF headers
     # https://www.ffmpeg.org/general.html#AMD-AMF_002fVCE
     svn checkout https://github.com/GPUOpen-LibrariesAndSDKs/AMF/trunk/amf/public/include
     pushd include
-    mkdir -p /usr/include/AMF && mv * /usr/include/AMF
+    mkdir -p /usr/include/AMF
+    mv * /usr/include/AMF
     popd
 
     # Download and install libva
     pushd ${SOURCE_DIR}
-    git clone -b v2.6-branch https://github.com/intel/libva
+    git clone -b 2.7.1 --depth=1 https://github.com/intel/libva
     pushd libva
-    sed -i 's|getenv("LIBVA_DRIVERS_PATH")|"/usr/lib/jellyfin-ffmpeg-dev/dri"|g' va/va.c
+    sed -i 's|getenv("LIBVA_DRIVERS_PATH")|"/usr/lib/jellyfin-ffmpeg-dev/lib/dri:/usr/lib/x86_64-linux-gnu/dri:/usr/lib/dri:/usr/local/lib/dri"|g' va/va.c
     sed -i 's|getenv("LIBVA_DRIVER_NAME")|NULL|g' va/va.c
     ./autogen.sh
-    ./configure --prefix=/usr
-    make -j$(nproc) && make install
-    ./configure --libdir=${SOURCE_DIR}/intel-drivers
-    make install
-    echo "intel-drivers/libva.so* usr/lib/jellyfin-ffmpeg-dev/libs" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
-    echo "intel-drivers/libva-drm.so* usr/lib/jellyfin-ffmpeg-dev/libs" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    ./configure --prefix=${TARGET_DIR}
+    make -j$(nproc) && make install && make install DESTDIR=${SOURCE_DIR}/intel
+    echo "intel${TARGET_DIR}/lib/libva.so* usr/lib/jellyfin-ffmpeg-dev/lib" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    echo "intel${TARGET_DIR}/lib/libva-drm.so* usr/lib/jellyfin-ffmpeg-dev/lib" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    popd
     popd
 
     # Download and install intel-vaapi-driver
     pushd ${SOURCE_DIR}
-    git clone -b v2.4-branch https://github.com/intel/intel-vaapi-driver
+    git clone -b 2.4.0 --depth=1 https://github.com/intel/intel-vaapi-driver
     pushd intel-vaapi-driver
     ./autogen.sh
-    ./configure --prefix=/usr
+    ./configure LIBVA_DRIVERS_PATH=${TARGET_DIR}/lib/dri
     make -j$(nproc) && make install
-    cp -r /usr/lib/dri ${SOURCE_DIR}/intel-drivers
-    echo "intel-drivers/dri/i965*.so usr/lib/jellyfin-ffmpeg-dev/dri" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
-    export LIBVA_DRIVER_NAME=i965
-    export LIBVA_DRIVERS_PATH=/usr/lib/dri
-    export PKG_CONFIG_PATH=/usr/lib/pkgconfig
+    mkdir -p ${SOURCE_DIR}/intel/dri
+    cp ${TARGET_DIR}/lib/dri/i965*.so ${SOURCE_DIR}/intel/dri
+    echo "intel/dri/i965*.so usr/lib/jellyfin-ffmpeg-dev/lib/dri" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
     popd
+    popd
+
+    # Uncomment for non-free QSV
+    # Download and install gmmlib
+    #pushd ${SOURCE_DIR}
+    #git clone -b intel-gmmlib-20.1.1 --depth=1 https://github.com/intel/gmmlib
+    #pushd gmmlib
+    #mkdir build && pushd build
+    #cmake -DCMAKE_INSTALL_PREFIX=${TARGET_DIR} ..
+    #make -j$(nproc) && make install && make install DESTDIR=${SOURCE_DIR}/intel
+    #make install
+    #echo "intel${TARGET_DIR}/lib/libigdgmm.so* usr/lib/jellyfin-ffmpeg-dev/lib" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    #popd
+    #popd
+    #popd
+
+    # Uncomment for non-free QSV
+    # Download and install media-driver
+    # Full Feature Build: ENABLE_KERNELS=ON(Default) ENABLE_NONFREE_KERNELS=ON(Default)
+    # Free Kernel Build: ENABLE_KERNELS=ON ENABLE_NONFREE_KERNELS=OFF
+    #pushd ${SOURCE_DIR}
+    #git clone -b intel-media-20.1.1 --depth=1 https://github.com/intel/media-driver
+    #pushd media-driver
+    #mkdir build && pushd build
+    #cmake -DCMAKE_INSTALL_PREFIX=${TARGET_DIR} \
+    #      -DENABLE_KERNELS=ON \
+    #      -DENABLE_NONFREE_KERNELS=ON \
+    #      LIBVA_DRIVERS_PATH=${TARGET_DIR}/lib/dri \
+    #      ..
+    #make -j$(nproc) && make install && make install DESTDIR=${SOURCE_DIR}/intel
+    #echo "intel${TARGET_DIR}/lib/libigfxcmrt.so* usr/lib/jellyfin-ffmpeg-dev/lib" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    #mkdir -p ${SOURCE_DIR}/intel/dri
+    #cp ${TARGET_DIR}/lib/dri/iHD*.so ${SOURCE_DIR}/intel/dri
+    #echo "intel/dri/iHD*.so usr/lib/jellyfin-ffmpeg-dev/lib/dri" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    #popd
+    #popd
+    #popd
+
+    # Uncomment for non-free QSV
+    # Download and install MediaSDK
+    # libdrm 2.4.84+ is required
+    #pushd ${SOURCE_DIR}
+    #git clone -b intel-mediasdk-20.1.1 --depth=1 https://github.com/Intel-Media-SDK/MediaSDK
+    #pushd MediaSDK
+    #sed -i 's|MFX_PLUGINS_CONF_DIR "/plugins.cfg"|"/usr/lib/jellyfin-ffmpeg-dev/lib/mfx/plugins.cfg"|g' api/mfx_dispatch/linux/mfxloader.cpp
+    #mkdir build && pushd build
+    #cmake -DCMAKE_INSTALL_PREFIX=${TARGET_DIR} ..
+    #make -j$(nproc) && make install && make install DESTDIR=${SOURCE_DIR}/intel
+    #echo "intel${TARGET_DIR}/lib/libmfx* usr/lib/jellyfin-ffmpeg-dev/lib" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    #echo "intel${TARGET_DIR}/lib/mfx/*.so usr/lib/jellyfin-ffmpeg-dev/lib/mfx" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    #echo "intel${TARGET_DIR}/share/mfx/plugins.cfg usr/lib/jellyfin-ffmpeg-dev/lib/mfx" >> ${SOURCE_DIR}/debian/jellyfin-ffmpeg-dev.install
+    #popd
+    #popd
+    #popd
 }
 # Prepare the cross-toolchain
 prepare_crossbuild_env_armhf() {

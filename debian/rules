@@ -10,17 +10,15 @@ ifeq ($(VERSION_SUFFIX),testing)
 endif
 PACKAGEVERSION := "$(ORIG_VERSION)-$(VERSION_SUFFIX)"
 
-CONFIG := --prefix=/usr \
-        --target-os=linux \
-	--toolchain=hardened \
-	--extra-cflags='--static' \
-        --disable-doc \
-        --disable-ffplay \
-        --disable-libxcb \
-        --disable-sdl2 \
-        --disable-xlib \
-        --disable-vdpau \
-        --disable-shared \
+CONFIG := --prefix=${TARGET_DIR} \
+	--target-os=linux \
+	--disable-doc \
+	--disable-ffplay \
+	--disable-shared \
+	--disable-libxcb \
+	--disable-vdpau \
+	--disable-sdl2 \
+	--disable-xlib \
 	--enable-gpl \
 	--enable-version3 \
 	--enable-static \
@@ -42,25 +40,30 @@ CONFIG := --prefix=/usr \
 	--enable-libx265 \
 	--enable-libzvbi \
 
-CONFIG_ARM := --arch=armhf \
-	--enable-mmal \
-        --enable-omx \
-        --enable-omx-rpi \
+CONFIG_ARM_COMMON := --toolchain=hardened \
 	--enable-cross-compile \
-	--cross-prefix=/usr/bin/arm-linux-gnueabihf-
+	--enable-omx \
+	--enable-omx-rpi \
 
-CONFIG_ARM64 := --arch=arm64 \
-        --enable-omx \
-        --enable-omx-rpi \
-	--enable-cross-compile \
-	--cross-prefix=/usr/bin/aarch64-linux-gnu-
+CONFIG_ARM := ${CONFIG_ARM_COMMON} \
+	--enable-mmal \
+	--arch=armhf \
+	--cross-prefix=/usr/bin/arm-linux-gnueabihf- \
+
+CONFIG_ARM64 := ${CONFIG_ARM_COMMON} \
+	--arch=arm64 \
+	--cross-prefix=/usr/bin/aarch64-linux-gnu- \
 
 CONFIG_x86 := --arch=amd64 \
+	--enable-opencl \
 	--enable-vaapi \
+	--enable-amf \
+	--enable-cuda \
 	--enable-nvenc \
 	--enable-nvdec \
-	--enable-amf \
-	--extra-ldflags=-Wl,-rpath=/usr/lib/jellyfin-ffmpeg-dev/libs
+	--enable-cuvid \
+	--enable-ffnvcodec \
+#	--enable-libmfx # uncomment for non-free QSV
 
 HOST_ARCH := $(shell arch)
 BUILD_ARCH := ${DEB_HOST_MULTIARCH}
@@ -90,7 +93,7 @@ override_dh_auto_clean:
 	dh_auto_clean || true
 
 override_dh_auto_install:
-	make -j$(proc) install-data DESTDIR=/srv/build/ffmpeg/jellyfin-ffmpeg-dev/debian/jellyfin-ffmpeg-dev AM_UPDATE_INFO_DIR=no 
+	make -j$(nproc) install-data DESTDIR=/srv/build/ffmpeg/jellyfin-ffmpeg-dev/debian/jellyfin-ffmpeg-dev AM_UPDATE_INFO_DIR=no 
 
 override_dh_usrlocal:
 

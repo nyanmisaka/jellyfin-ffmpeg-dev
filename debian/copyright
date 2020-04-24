@@ -1010,13 +1010,13 @@ License: FSF
  of this license document, but changing it is not allowed.
 
 Files: libva/*
-Copyright: 2007-2017, Intel Corporation
+Copyright: 2007, Intel Corporation
 License: Expat
 Comment:
   Libva is an implementation for VA-API (Video Acceleration API).
 
 Files: intel-vaapi-driver/*
-Copyright: 2007-2017, Intel Corporation
+Copyright: 2011, Intel Corporation
 License: Expat
 Comment:
   VA-API (Video Acceleration API) user mode driver for Intel GEN Graphics family.
